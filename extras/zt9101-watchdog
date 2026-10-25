@@ -1,0 +1,46 @@
+#!/bin/bash
+# Recover the ZT9101 USB Wi-Fi dongle when its vendor driver wedges: scans failing with EBUSY,
+# or disconnected two runs in a row while an auto-connect Wi-Fi profile exists. Max one reset / 5 min.
+# Run every minute from zt9101-watchdog.timer.
+S=/run/zt9101-watchdog
+DRV=zt9101_ztopmac_usb
+
+zt_if() {   # network interface bound to this driver (survives renames like wlan0 -> wlp0s20f0u7)
+    local d
+    for d in /sys/class/net/*; do
+        [ "$(basename "$(readlink -f "$d/device/driver" 2>/dev/null)")" = "$DRV" ] && { basename "$d"; return; }
+    done
+}
+nm_state() { nmcli -t -f DEVICE,STATE dev | awk -F: -v i="$1" '$1==i {print $2}'; }
+
+lsusb -d 350b:9101 >/dev/null 2>&1 || exit 0
+nmcli -t -f TYPE,AUTOCONNECT connection show | grep -q '^802-11-wireless:yes$' || exit 0
+
+IF=$(zt_if)
+state=$(nm_state "$IF")
+busy=$(journalctl -u wpa_supplicant --since "-2min" -o cat 2>/dev/null | grep -c "${IF:-zt9101}: CTRL-EVENT-SCAN-FAILED ret=-16")
+bad=0
+[ -z "$IF" ] && bad=1
+[ "$busy" -ge 5 ] && bad=1
+if [ "$state" != connected ]; then [ -f $S.down ] && bad=1; touch $S.down; else rm -f $S.down; fi
+[ $bad = 1 ] || exit 0
+
+now=$(date +%s); last=$(cat $S.last 2>/dev/null || echo 0)
+[ $((now - last)) -lt 300 ] && exit 0
+echo "$now" > $S.last; rm -f $S.down
+logger -t zt9101-watchdog "resetting $DRV (iface=${IF:-none} state=${state:-none} busy_scans=$busy)"
+
+rmmod $DRV 2>/dev/null; sleep 1          # keep cfg80211 loaded, or wpa_supplicant loses nl80211
+usbreset 350b:9101 >/dev/null 2>&1; sleep 3
+modprobe $DRV
+udevadm settle -t 10
+
+# NetworkManager won't auto-rejoin a profile it has blocked (user disconnect, retries used up): ask explicitly.
+IF=""; for i in $(seq 1 30); do
+    IF=$(zt_if); st=$(nm_state "$IF")
+    [ -n "$IF" ] && [ -n "$st" ] && [ "$st" != unmanaged ] && [ "$st" != unavailable ] && break
+    sleep 1
+done
+CON=$(nmcli -t -f UUID,TYPE,AUTOCONNECT connection show | awk -F: '$2=="802-11-wireless" && $3=="yes" {print $1; exit}')
+[ -n "$CON" ] && [ -n "$IF" ] && nmcli -w 45 connection up "$CON" ifname "$IF" >/dev/null 2>&1
+logger -t zt9101-watchdog "after reset: ${IF:-none} $(nm_state "$IF")"

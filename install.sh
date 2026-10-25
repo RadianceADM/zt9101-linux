@@ -1,7 +1,9 @@
 #!/bin/bash
 # Install the ZT9101 USB Wi-Fi driver with DKMS (rebuilt automatically on kernel updates),
-# plus its firmware and config. Usage: sudo ./install.sh
+# plus its firmware and config. Usage: sudo ./install.sh [--watchdog]
+#   --watchdog  also install the NetworkManager tweak and the auto-recovery watchdog (see README)
 set -euo pipefail
+WATCHDOG=0; [ "${1:-}" = --watchdog ] && WATCHDOG=1
 [ "$(id -u)" = 0 ] || { echo "Run as root: sudo ./install.sh"; exit 1; }
 cd "$(dirname "$0")"
 command -v dkms >/dev/null || { echo "Install dkms and your kernel headers first (see README)."; exit 1; }
@@ -17,6 +19,14 @@ install -m 644 src/fw/*.bin /lib/firmware/zt9101/
     src/wifi.cfg > /etc/zt9101/wifi.cfg
 echo "options zt9101_ztopmac_usb cfg=/etc/zt9101/wifi.cfg" > /etc/modprobe.d/zt9101.conf
 command -v restorecon >/dev/null && restorecon -R /lib/firmware/zt9101 /etc/zt9101 /etc/modprobe.d/zt9101.conf || true
+
+if [ $WATCHDOG = 1 ]; then
+    install -D -m 644 extras/90-zt9101.conf /etc/NetworkManager/conf.d/90-zt9101.conf
+    install -m 755 extras/zt9101-watchdog /usr/local/sbin/zt9101-watchdog
+    install -m 644 extras/zt9101-watchdog.service extras/zt9101-watchdog.timer /etc/systemd/system/
+    systemctl daemon-reload && systemctl enable --now zt9101-watchdog.timer
+    systemctl reload NetworkManager 2>/dev/null || true
+fi
 
 dkms remove "zt9101/$V" --all >/dev/null 2>&1 || true
 dkms install "zt9101/$V"

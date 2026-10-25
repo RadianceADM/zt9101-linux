@@ -1,0 +1,6 @@
+[Unit]
+Description=Recover a wedged ZT9101 USB Wi-Fi driver
+After=NetworkManager.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/zt9101-watchdog

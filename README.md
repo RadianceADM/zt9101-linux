@@ -31,7 +31,7 @@ to `KERNEL_VERSION(7, 2, 0)`.
      (Fedora **Server** also needs `sudo dnf install kernel-modules-$(uname -r)` — it ships
      without the Wi-Fi core module `cfg80211`)
    - Debian/Ubuntu: `sudo apt install dkms build-essential linux-headers-$(uname -r)`
-2. `sudo ./install.sh`
+2. `sudo ./install.sh --watchdog` (or without `--watchdog`, see below)
 3. If Secure Boot is on, enroll the DKMS signing key once (next section).
 4. Connect: `nmcli --ask dev wifi connect "<SSID>"`
 
@@ -50,6 +50,20 @@ Choose a one-time password, reboot, and on the blue **MOK management** screen (1
 window): any key → *Enroll MOK* → *Continue* → *Yes* → password → *Reboot*.
 Nothing is echoed while typing the password. If a gaming keyboard drops keys there, use a
 one-character password (`mokutil --generate-hash=1 > h; sudo mokutil --import … --hash-file h`).
+
+## Watchdog (recommended)
+
+The vendor driver can wedge after a connection is torn down mid-scan: every scan then fails
+with `CTRL-EVENT-SCAN-FAILED ret=-16` (EBUSY) and the adapter never reconnects.
+`install.sh --watchdog` adds:
+
+- `extras/zt9101-watchdog` + a 1-minute systemd timer: if the adapter has been disconnected for
+  two checks in a row (with an auto-connect Wi-Fi profile present) or scans keep failing with
+  EBUSY, it resets the USB device, reloads the driver and re-activates the profile. At most one
+  reset per 5 minutes; every action is logged (`journalctl -t zt9101-watchdog`).
+- `extras/90-zt9101.conf`: turns off NetworkManager's scan-MAC randomization for this driver.
+
+Tested by forcing a disconnect: back online in ~13 s once the watchdog fires.
 
 ## Notes and troubleshooting
 
