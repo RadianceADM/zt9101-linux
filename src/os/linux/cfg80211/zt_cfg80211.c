@@ -25,6 +25,12 @@
 #include "zt_cfg80211.h"
 #include "android/android_priv_cmd.h"
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 2, 0))
+#define ZT_STA_EVENT_DEV(ndev) ((ndev)->ieee80211_ptr)
+#else
+#define ZT_STA_EVENT_DEV(ndev) (ndev)
+#endif
+
 #ifdef CONFIG_IOCTL_CFG80211
 
 #define CFG80211_DBG(fmt, ...)      LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
@@ -3252,7 +3258,7 @@ void zt_ap_cfg80211_assoc_event_up(nic_info_st *pnic_info,  zt_u8 *passoc_req,
         sinfo.filled = STATION_INFO_ASSOC_REQ_IES;
         sinfo.assoc_req_ies = passoc_req + WLAN_HDR_A3_LEN + ie_offset;
         sinfo.assoc_req_ies_len = assoc_req_len - WLAN_HDR_A3_LEN - ie_offset;
-        cfg80211_new_sta(ndev, GetAddr2Ptr(passoc_req), &sinfo, GFP_ATOMIC);
+        cfg80211_new_sta(ZT_STA_EVENT_DEV(ndev), GetAddr2Ptr(passoc_req), &sinfo, GFP_ATOMIC);
 #else
         channel = pcur_network->channel;
         freq = zt_ch_2_freq(channel);
@@ -3294,7 +3300,7 @@ void zt_ap_cfg80211_disassoc_event_up(nic_info_st *pnic_info,
     pwdn_info->state = E_WDN_AP_STATE_READY;
 #endif
 #if defined(ZT_USE_CFG80211_STA_EVENT) || defined(COMPAT_KERNEL_RELEASE)
-    cfg80211_del_sta(ndev, pwdn_info->mac, GFP_ATOMIC);
+    cfg80211_del_sta(ZT_STA_EVENT_DEV(ndev), pwdn_info->mac, GFP_ATOMIC);
 #else
     channel = pcur_network->channel;
     freq = zt_ch_2_freq(channel);
@@ -4193,16 +4199,74 @@ static zt_s32 cfg80211_cancel_remain_on_channel_cb(struct wiphy *wiphy,
 }
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 2, 0))
+/* 7.2 passes struct wireless_dev to key/station ops; adapt to the driver's net_device handlers. */
+static int _add_key_cb_wdev(struct wiphy *wiphy, struct wireless_dev *wdev, int link_id,
+                            u8 key_index, bool pairwise, const u8 *mac_addr,
+                            struct key_params *params)
+{
+    return _add_key_cb(wiphy, wdev->netdev, link_id, key_index, pairwise, mac_addr, params);
+}
+static int _get_key_cb_wdev(struct wiphy *wiphy, struct wireless_dev *wdev, int link_id,
+                            u8 key_index, bool pairwise, const u8 *mac_addr, void *cookie,
+                            void (*callback)(void *cookie, struct key_params *))
+{
+    return _get_key_cb(wiphy, wdev->netdev, link_id, key_index, pairwise, mac_addr, cookie, callback);
+}
+static int _del_key_cb_wdev(struct wiphy *wiphy, struct wireless_dev *wdev, int link_id,
+                            u8 key_index, bool pairwise, const u8 *mac_addr)
+{
+    return _del_key_cb(wiphy, wdev->netdev, link_id, key_index, pairwise, mac_addr);
+}
+static int _cfg80211_get_station_wdev(struct wiphy *wiphy, struct wireless_dev *wdev,
+                                      const u8 *mac, struct station_info *sinfo)
+{
+    return _cfg80211_get_station(wiphy, wdev->netdev, mac, sinfo);
+}
+#ifdef CFG_ENABLE_AP_MODE
+static int add_station_wdev(struct wiphy *wiphy, struct wireless_dev *wdev, const u8 *mac,
+                            struct station_parameters *params)
+{
+    return add_station(wiphy, wdev->netdev, mac, params);
+}
+static int del_station_wdev(struct wiphy *wiphy, struct wireless_dev *wdev,
+                            struct station_del_parameters *params)
+{
+    return del_station(wiphy, wdev->netdev, params);
+}
+static int change_station_wdev(struct wiphy *wiphy, struct wireless_dev *wdev, const u8 *mac,
+                               struct station_parameters *params)
+{
+    return change_station(wiphy, wdev->netdev, mac, params);
+}
+static int dump_station_wdev(struct wiphy *wiphy, struct wireless_dev *wdev, int idx, u8 *mac,
+                             struct station_info *sinfo)
+{
+    return dump_station(wiphy, wdev->netdev, idx, mac, sinfo);
+}
+#endif
+#ifdef ZT_CONFIG_P2P
+static int cfg80211_remain_on_channel_cb_wdev(struct wiphy *wiphy, struct wireless_dev *wdev,
+        struct ieee80211_channel *chan, unsigned int duration, u64 *cookie, const u8 *rx_addr)
+{
+    return cfg80211_remain_on_channel_cb(wiphy, wdev, chan, duration, cookie);
+}
+#endif
+#define ZT_WDEV_OP(fn) fn##_wdev
+#else
+#define ZT_WDEV_OP(fn) fn
+#endif
+
 static struct cfg80211_ops zt_cfg80211_ops =
 {
     .change_virtual_intf = _cfg80211_change_iface,
 
-    .add_key = _add_key_cb,
-    .get_key = _get_key_cb, //
-    .del_key = _del_key_cb,
+    .add_key = ZT_WDEV_OP(_add_key_cb),
+    .get_key = ZT_WDEV_OP(_get_key_cb), //
+    .del_key = ZT_WDEV_OP(_del_key_cb),
     .set_default_key = _set_default_key_cb,
 
-    .get_station = _cfg80211_get_station,
+    .get_station = ZT_WDEV_OP(_cfg80211_get_station),
     .scan = _call_scan_cb,
     .set_wiphy_params = _set_wiphy_params,
     .connect = _connect_cb,
@@ -4253,10 +4317,10 @@ static struct cfg80211_ops zt_cfg80211_ops =
     .stop_ap = cfg80211_stop_ap,
 #endif
 
-    .add_station = add_station,
-    .del_station = del_station,
-    .change_station = change_station,
-    .dump_station = dump_station,
+    .add_station = ZT_WDEV_OP(add_station),
+    .del_station = ZT_WDEV_OP(del_station),
+    .change_station = ZT_WDEV_OP(change_station),
+    .dump_station = ZT_WDEV_OP(dump_station),
     .change_bss = change_bss,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0))
     .set_channel = set_channel,
@@ -4264,7 +4328,7 @@ static struct cfg80211_ops zt_cfg80211_ops =
 #endif
 
 #ifdef ZT_CONFIG_P2P
-    .remain_on_channel = cfg80211_remain_on_channel_cb,
+    .remain_on_channel = ZT_WDEV_OP(cfg80211_remain_on_channel_cb),
     .cancel_remain_on_channel = cfg80211_cancel_remain_on_channel_cb,
 #endif
 

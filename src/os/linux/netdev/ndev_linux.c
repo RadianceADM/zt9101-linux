@@ -91,9 +91,10 @@ static zt_s32 ndev_init(struct net_device *ndev)
         }
 
         NDEV_INFO("efuse_macaddr:"ZT_MAC_FMT, ZT_MAC_ARG(hw_info->macAddr));
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+        eth_hw_addr_set(ndev, hw_info->macAddr);
+#else
         zt_memcpy(ndev->dev_addr, hw_info->macAddr, ZT_80211_MAC_ADDR_LEN);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0))
-        zt_memcpy(ndev->dev_addr_shadow, hw_info->macAddr, ZT_80211_MAC_ADDR_LEN);
 #endif
         NDEV_INFO("[%d] macaddr:"ZT_MAC_FMT, ndev_priv->nic->ndev_id,
                   ZT_MAC_ARG(hw_info->macAddr));
@@ -585,7 +586,13 @@ static zt_s32 ndev_set_mac_addr(struct net_device *pnetdev, void *addr)
     }
 
     /* update mac address */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+    /* dev_addr is read-only since 5.17; writing it directly desyncs dev_addr_shadow
+     * (dev_addr_check WARN) and breaks association after NetworkManager's scan-MAC changes. */
+    eth_hw_addr_set(pnetdev, sock_addr->sa_data);
+#else
     zt_memcpy(pnetdev->dev_addr, sock_addr->sa_data, ZT_80211_MAC_ADDR_LEN);
+#endif
 
     zt_memcpy(nic_to_local_addr(pnic_info), sock_addr->sa_data,
               ZT_80211_MAC_ADDR_LEN);

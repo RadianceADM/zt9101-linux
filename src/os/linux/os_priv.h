@@ -36,7 +36,17 @@ typedef struct tasklet_struct       zt_tasklet;
 #define zt_inline                   __always_inline
 
 #define zt_strchr                   strchr
-#define zt_strncpy                  strncpy
+/* strncpy() is gone from the kernel API (7.2); keep its exact semantics (pads, no forced NUL),
+ * which proc.c relies on when it copies "len - 1" chars to drop a trailing newline. */
+static inline char *zt_strncpy(char *dest, const char *src, size_t n)
+{
+    size_t i;
+    for (i = 0; i < n && src[i]; i++)
+        dest[i] = src[i];
+    for (; i < n; i++)
+        dest[i] = '\0';
+    return dest;
+}
 #define zt_strncmp                  strncmp
 #define zt_strcmp                   strcmp
 #define zt_memcpy                   memcpy
