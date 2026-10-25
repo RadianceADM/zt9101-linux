@@ -1111,7 +1111,7 @@ static struct usb_driver zt_usb_driver =
     .reset_resume   =   NULL,//zt_usb_resume,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0))
     .shutdown       =   zt_usb_shutdown,
-#elseif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 19)) && (LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0))
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 19)) && (LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0))
     .drvwrap.driver.shutdown    = zt_usb_shutdown,
 #endif
     .supports_autosuspend       = 1,

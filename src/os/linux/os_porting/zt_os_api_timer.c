@@ -60,7 +60,11 @@ zt_inline zt_s32 zt_os_api_timer_set(zt_os_api_timer_t *ptimer, zt_u32 intv_ms)
 
 zt_inline zt_s32 zt_os_api_timer_unreg(zt_os_api_timer_t *ptimer)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+    timer_delete(ptimer);
+#else
     del_timer(ptimer);
+#endif
     return 0;
 }
 

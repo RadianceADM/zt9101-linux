@@ -21,6 +21,17 @@
 #include "iw_func.h"
 #include <linux/decompress/mm.h>
 
+#if !defined(CONFIG_WEXT_CORE)
+/* Kernels built without Wireless Extensions (e.g. Fedora) don't export these helpers;
+ * the WEXT ioctl path that would call these handlers doesn't exist there, so no-op them. */
+static inline char *zt_iwe_add_event_nowext(struct iw_request_info *info, char *stream,
+        char *ends, struct iw_event *iwe, int event_len) { return stream; }
+static inline char *zt_iwe_add_point_nowext(struct iw_request_info *info, char *stream,
+        char *ends, struct iw_event *iwe, char *extra) { return stream; }
+#define iwe_stream_add_event zt_iwe_add_event_nowext
+#define iwe_stream_add_point zt_iwe_add_point_nowext
+#endif
+
 #define IW_FUNC_DBG(fmt, ...)       LOG_D("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)
 #define IW_FUNC_ARRAY(data, len)    zt_log_array(data, len)
 #define IW_FUNC_INFO(fmt, ...)      LOG_I("[%s:%d]"fmt, __func__, __LINE__, ##__VA_ARGS__)

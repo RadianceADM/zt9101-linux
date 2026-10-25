@@ -10,122 +10,122 @@ endif
 #####################################################
 ifeq ($(CONFIG_DRIVER_VER), null)
 # get svn version
-#EXTRA_CFLAGS += -D'ZT_VERSION="[svn]$(shell svnversion -n $$WDRV_DIR)"'
-EXTRA_CFLAGS += -D'ZT_VERSION="[svn]$(shell svnversion -c $$WDRV_DIR | cut -d : -f 2)"'
+#ccflags-y += -D'ZT_VERSION="[svn]$(shell svnversion -n $$WDRV_DIR)"'
+ccflags-y += -D'ZT_VERSION="[svn]$(shell svnversion -c $$WDRV_DIR | cut -d : -f 2)"'
 else
 # use Driver version
-EXTRA_CFLAGS += -D'ZT_VERSION="$(CONFIG_DRIVER_VER)"'
+ccflags-y += -D'ZT_VERSION="$(CONFIG_DRIVER_VER)"'
 endif
 #get compile time
 ifeq ($(CT), y)
-EXTRA_CFLAGS += -D'COMPILE_TIME="$(shell date +"%Y-%m-%d %H:%M:%S")"'
+ccflags-y += -D'COMPILE_TIME="$(shell date +"%Y-%m-%d %H:%M:%S")"'
 endif
 
-EXTRA_CFLAGS += -DZT_DEBUG_LEVEL=$(CONFIG_DEBUG_LEVEL)
+ccflags-y += -DZT_DEBUG_LEVEL=$(CONFIG_DEBUG_LEVEL)
 
 ifeq ($(CONFIG_MODULE_IMPORT_NS), y)
-EXTRA_CFLAGS += -DCONFIG_MODULE_IMPORT_NS
+ccflags-y += -DCONFIG_MODULE_IMPORT_NS
 endif
 
 ifeq ($(CONFIG_FW_FILE), y)
-EXTRA_CFLAGS += -DCONFIG_FW_FILE
+ccflags-y += -DCONFIG_FW_FILE
 endif
 
 ifeq ($(CONFIG_ZT9101XV20_SUPPORT), y)
-EXTRA_CFLAGS += -DCONFIG_ZT9101XV20_SUPPORT
+ccflags-y += -DCONFIG_ZT9101XV20_SUPPORT
 endif
 
 ifeq ($(CONFIG_ZT9101XV30_SUPPORT), y)
-EXTRA_CFLAGS += -DCONFIG_ZT9101XV30_SUPPORT
+ccflags-y += -DCONFIG_ZT9101XV30_SUPPORT
 endif
 
-EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS)
-EXTRA_CFLAGS += -O1
-EXTRA_CFLAGS += -I$(WDRV_DIR)/os/
-EXTRA_CFLAGS += -I$(WDRV_DIR)/os/linux
-EXTRA_CFLAGS += -I$(WDRV_DIR)/os/linux/os_porting
-EXTRA_CFLAGS += -I$(WDRV_DIR)/os/linux/hif
-EXTRA_CFLAGS += -I$(WDRV_DIR)/os/linux/netdev
-EXTRA_CFLAGS += -I$(WDRV_DIR)/os/linux/cfg80211
-EXTRA_CFLAGS += -I$(WDRV_DIR)/os/linux/iw
-EXTRA_CFLAGS += -I$(WDRV_DIR)/os/linux/pwr
-EXTRA_CFLAGS += -I$(WDRV_DIR)/nic
-EXTRA_CFLAGS += -I$(WDRV_DIR)/nic/utility
-EXTRA_CFLAGS += -I$(WDRV_DIR)/nic/p2p
+ccflags-y += $(USER_ccflags-y)
+ccflags-y += -O1
+ccflags-y += -I$(WDRV_DIR)/os/
+ccflags-y += -I$(WDRV_DIR)/os/linux
+ccflags-y += -I$(WDRV_DIR)/os/linux/os_porting
+ccflags-y += -I$(WDRV_DIR)/os/linux/hif
+ccflags-y += -I$(WDRV_DIR)/os/linux/netdev
+ccflags-y += -I$(WDRV_DIR)/os/linux/cfg80211
+ccflags-y += -I$(WDRV_DIR)/os/linux/iw
+ccflags-y += -I$(WDRV_DIR)/os/linux/pwr
+ccflags-y += -I$(WDRV_DIR)/nic
+ccflags-y += -I$(WDRV_DIR)/nic/utility
+ccflags-y += -I$(WDRV_DIR)/nic/p2p
 ifndef __linux__
-EXTRA_CFLAGS += -D__linux__
+ccflags-y += -D__linux__
 endif
 
 ifeq ($(CONFIG_DEBUG_LEVEL), 0)
-EXTRA_CFLAGS += -Wall
-EXTRA_CFLAGS += -Wextra
-EXTRA_CFLAGS += -Wno-unused-parameter
-EXTRA_CFLAGS += -Wno-implicit-fallthrough
-EXTRA_CFLAGS += -Wno-sign-compare
-EXTRA_CFLAGS += -Wno-missing-field-initializers
-EXTRA_CFLAGS += -Wno-address-of-packed-member
-EXTRA_CFLAGS += -Wno-uninitialized
-EXTRA_CFLAGS += -Wno-type-limits
-EXTRA_CFLAGS += -Wno-empty-body
-EXTRA_CFLAGS += -w
+ccflags-y += -Wall
+ccflags-y += -Wextra
+ccflags-y += -Wno-unused-parameter
+ccflags-y += -Wno-implicit-fallthrough
+ccflags-y += -Wno-sign-compare
+ccflags-y += -Wno-missing-field-initializers
+ccflags-y += -Wno-address-of-packed-member
+ccflags-y += -Wno-uninitialized
+ccflags-y += -Wno-type-limits
+ccflags-y += -Wno-empty-body
+ccflags-y += -w
 else
-EXTRA_CFLAGS += -Wno-all
-EXTRA_CFLAGS += -Wno-extra
-EXTRA_CFLAGS += -w
+ccflags-y += -Wno-all
+ccflags-y += -Wno-extra
+ccflags-y += -w
 endif
 
 ifeq ($(CONFIG_TX_SOFT_AGG), y)
-EXTRA_CFLAGS += -DCONFIG_SOFT_TX_AGGREGATION
+ccflags-y += -DCONFIG_SOFT_TX_AGGREGATION
 endif
 
 ifeq ($(CONFIG_RX_SOFT_AGG), y)
-EXTRA_CFLAGS += -DCONFIG_SOFT_RX_AGGREGATION
+ccflags-y += -DCONFIG_SOFT_RX_AGGREGATION
 endif
 
 ifeq ($(CONFIG_HIF_PORT), usb)
-EXTRA_CFLAGS += -DCONFIG_USB_FLAG
+ccflags-y += -DCONFIG_USB_FLAG
 else ifeq ($(CONFIG_HIF_PORT), sdio)
-EXTRA_CFLAGS += -DCONFIG_SDIO_FLAG
+ccflags-y += -DCONFIG_SDIO_FLAG
 else
-EXTRA_CFLAGS += -DCONFIG_BOTH_FLAG
+ccflags-y += -DCONFIG_BOTH_FLAG
 endif
 
 ifeq ($(CONFIG_CLOCK_24MHZ), y)
-EXTRA_CFLAGS += -DCONFIG_CLOCK_24MHZ
+ccflags-y += -DCONFIG_CLOCK_24MHZ
 endif
 
 ifeq ($(CONFIG_WIFI_MODE), ap)
-EXTRA_CFLAGS += -DCFG_ENABLE_AP_MODE
-EXTRA_CFLAGS += -DZT_WEP_AUTH_ENABLE_WEXT
+ccflags-y += -DCFG_ENABLE_AP_MODE
+ccflags-y += -DZT_WEP_AUTH_ENABLE_WEXT
 endif
 
 ifeq ($(CONFIG_WIFI_MODE), monitor)
-EXTRA_CFLAGS += -DCFG_ENABLE_MONITOR_MODE
+ccflags-y += -DCFG_ENABLE_MONITOR_MODE
 endif
 
 ifeq ($(CONFIG_WIFI_MODE), adhoc)
-EXTRA_CFLAGS += -DCFG_ENABLE_ADHOC_MODE
+ccflags-y += -DCFG_ENABLE_ADHOC_MODE
 endif
 
 ifeq ($(CONFIG_WIFI_MODE), all)
-EXTRA_CFLAGS += -DCFG_ENABLE_AP_MODE
-EXTRA_CFLAGS += -DCFG_ENABLE_ADHOC_MODE
-EXTRA_CFLAGS += -DCFG_ENABLE_MONITOR_MODE
-EXTRA_CFLAGS += -DZT_WEP_AUTH_ENABLE_WEXT
+ccflags-y += -DCFG_ENABLE_AP_MODE
+ccflags-y += -DCFG_ENABLE_ADHOC_MODE
+ccflags-y += -DCFG_ENABLE_MONITOR_MODE
+ccflags-y += -DZT_WEP_AUTH_ENABLE_WEXT
 endif
 
 ifeq ($(CONFIG_WIFI_FRAMEWORK), nl80211)
-EXTRA_CFLAGS += -DCONFIG_IOCTL_CFG80211 -DZT_USE_CFG80211_STA_EVENT
+ccflags-y += -DCONFIG_IOCTL_CFG80211 -DZT_USE_CFG80211_STA_EVENT
 else ifeq ($(CONFIG_WIFI_FRAMEWORK), mp)
-EXTRA_CFLAGS += -DCONFIG_MP_MODE
+ccflags-y += -DCONFIG_MP_MODE
 endif
 
 ifeq ($(CONFIG_STA_AND_AP_MODE), y)
-EXTRA_CFLAGS += -DCONFIG_STA_AND_AP_MODE
+ccflags-y += -DCONFIG_STA_AND_AP_MODE
 endif
 
 ifeq ($(CONFIG_POWER_SAVING), y)
-EXTRA_CFLAGS += -DCONFIG_LPS
+ccflags-y += -DCONFIG_LPS
 endif
 
 EXTRA_LDFLAGS += --strip-debug
